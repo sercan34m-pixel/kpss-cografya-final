@@ -1,0 +1,70 @@
+name: Build Android APK
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Kodları Çek
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. JAVA 17 KUR (Android için gerekli)
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # 3. Python Kur
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # 4. KLASÖR DÜZENLEME (Hata Önleyici)
+      - name: Setup Project Directory
+        run: |
+          mkdir kpss_app
+          # Tüm dosyaları güvenli bir klasöre taşıyoruz
+          find . -maxdepth 1 -name "main.py" -exec mv {} kpss_app/ \;
+          find . -maxdepth 1 -name "*.json" -exec mv {} kpss_app/ \;
+          if [ -f "requirements.txt" ]; then mv requirements.txt kpss_app/; fi
+          if [ -d "assets" ]; then mv assets kpss_app/; fi
+
+      # 5. Gerekli Araçları Yükle
+      - name: Install Build Tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install cookiecutter packaging flet
+
+      # 6. Flutter Ortamını Hazırla (Flet'in temeli)
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.0'
+
+      # 7. Android Lisanslarını Kabul Et
+      - name: Accept Android Licenses
+        run: |
+          yes | flutter doctor --android-licenses
+
+      # 8. APK Derleme (İşlemin yapıldığı yer)
+      - name: Build APK
+        run: |
+          cd kpss_app
+          # verbose komutu hatayı detaylı gösterir
+          yes | flet build apk --verbose
+
+      # 9. Sonucu Paketle ve Sun
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: kpss-son-surum
+          path: kpss_app/build/apk/app-release.apk
